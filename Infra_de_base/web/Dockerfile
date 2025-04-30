@@ -11,6 +11,8 @@ RUN apt update && \
 RUN a2enmod ssl rewrite headers
 COPY ./apache-config/apache2.conf /etc/apache2/apache2.conf
 COPY ./apache-config/security.conf /etc/apache2/conf-available/security.conf
+COPY ./apache-config/server-name.conf /etc/apache2/conf-available/server-name.conf
+RUN a2enconf server-name
 
 EXPOSE 80 443
 

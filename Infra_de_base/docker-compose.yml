@@ -5,6 +5,8 @@ services:
     restart: always
     environment:
       MARIADB_ROOT_PASSWORD: michel
+    networks:
+      - app-network
 
   webserver1: 
     build: 
@@ -13,6 +15,8 @@ services:
     restart: always
     expose:
       - 80
+    networks:
+      - app-network
 
   webserver2:
     build: 
@@ -21,6 +25,8 @@ services:
     restart: always
     expose:
       - 80
+    networks:
+      - app-network
 
   webserver3:
     build: 
@@ -29,6 +35,9 @@ services:
     restart: always
     expose:
       - 80
+    networks:
+      - app-network
+
   reverse-proxy: 
     build:
       context: ./reverse_proxy
@@ -40,3 +49,9 @@ services:
       - webserver1
       - webserver2
       - webserver3
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
