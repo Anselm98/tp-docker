@@ -31,7 +31,7 @@ services:
       - 80
   reverse-proxy: 
     build:
-      context: ./reverse-proxy
+      context: ./reverse_proxy
       dockerfile: Dockerfile
     restart: always
     ports:
