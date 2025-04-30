@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Variables (adapter selon tes noms)
+# Variables (adapter à ton infra si modifiées)
 C1=web1; C2=web2; C3=web3
 N1=net1; N2=net2; N3=net3
 PROXY_IMG=my-reverseproxy
@@ -23,6 +23,6 @@ docker rm -f $PROXY_CTR 2>/dev/null || echo "$PROXY_CTR absent"
 docker rmi $PROXY_IMG 2>/dev/null || echo "Image $PROXY_IMG absente"
 
 echo "== 4. Nettoyage fichiers de conf NGINX/Docker =="
-rm -rf nginx-reverse-proxy
+rm -rf nginx-reverse-proxy 2>/dev/null || true
 
 echo "== Nettoyage terminé ! =="
