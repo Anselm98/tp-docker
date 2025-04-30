@@ -1,120 +1,125 @@
 #!/bin/bash
 
-# Arrête le script en cas d'erreur
+# Adresses des réseaux
+NET1=10.10.1
+NET2=10.10.2
+NET3=10.10.3
+
+# Noms des conteneurs
+C1=web1
+C2=web2
+C3=web3
+
+# Noms des réseaux LXC
+N1=net1
+N2=net2
+N3=net3
+
+# Reverse proxy (nom de l'image et du conteneur)
+PROXY_IMG=my-reverseproxy
+PROXY_CTR=reverseproxy
+
 set -e
 
-### Vars
-LXC_IMG="ubuntu"
-LXC_REL="22.04"
-LXC_ARCH="amd64"
-BASE_DIR="$(pwd)"
+echo "== 1. Création des réseaux LXC =="
+lxc network create $N1 ipv4.address=$NET1.1/24 ipv4.nat=true || true
+lxc network create $N2 ipv4.address=$NET2.1/24 ipv4.nat=true || true
+lxc network create $N3 ipv4.address=$NET3.1/24 ipv4.nat=true || true
 
-# Nom des containers
-declare -a SERVERS=("webserver1" "webserver2" "webserver3")
-declare -a DB_HOSTS=("db1" "db2" "db3")
+echo "== 2. Création des conteneurs LXC Apache/MariaDB =="
 
-# Fichier & dossiers nécessaires
-PHP_SCRIPT="$BASE_DIR/db-test.php"
-APACHE_CONF_DIR="$BASE_DIR/apache_conf"
-REVERSE_PROXY_DIR="$BASE_DIR/reverse_proxy"
-
-if ! [[ -f "$PHP_SCRIPT" ]]; then
-  echo "ERREUR: Fichier db-test.php manquant à la racine."
-  exit 1
-fi
-for f in apache2.conf server-name.conf security.conf; do
-  if ! [[ -f "$APACHE_CONF_DIR/$f" ]]; then
-    echo "ERREUR: Fichier $f manquant dans apache_conf/"
-    exit 1
-  fi
-done
-for f in Dockerfile nginx.conf; do
-  if ! [[ -f "$REVERSE_PROXY_DIR/$f" ]]; then
-    echo "ERREUR: Fichier $f manquant dans reverse_proxy/"
-    exit 1
-  fi
+for i in 1 2 3; do
+  CNT="web$i"
+  NET="net$i"
+  IMG="ubuntu:22.04"
+  echo " - $CNT sur $NET"
+  lxc launch $IMG $CNT -n $NET || echo "$CNT existe déjà"
 done
 
-### Création des 3 containers LXC
-for i in {0..2}; do
-  echo
-  echo "=== Création et configuration : ${SERVERS[$i]} ==="
-  lxc-create -n "${SERVERS[$i]}" -t download -- --dist $LXC_IMG --release $LXC_REL --arch $LXC_ARCH
+echo "== 3. Installation Apache/MariaDB + index personnalisé =="
 
-  lxc-start -n "${SERVERS[$i]}"
-  # Patiente le temps du boot
-  sleep 7
+for i in 1 2 3; do
+  CNT="web$i"
+  echo " [${CNT}] Installation..."
+  lxc exec $CNT -- bash -c 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y apache2 mariadb-server php php-mysql'
+  lxc exec $CNT -- systemctl enable apache2 mariadb
+  lxc exec $CNT -- systemctl start apache2 mariadb
 
-  lxc-attach -n "${SERVERS[$i]}" -- bash -c "apt update && apt install -y apache2 mariadb-server php php-mysqli"
-
-  # Copie script PHP
-  lxc-file push "$PHP_SCRIPT" "${SERVERS[$i]}/var/www/html/db-test.php"
-
-  # Copie les configs Apache
-  lxc-file push "$APACHE_CONF_DIR/apache2.conf"     "${SERVERS[$i]}/etc/apache2/apache2.conf"
-  lxc-file push "$APACHE_CONF_DIR/security.conf"    "${SERVERS[$i]}/etc/apache2/conf-available/security.conf"
-  lxc-file push "$APACHE_CONF_DIR/server-name.conf" "${SERVERS[$i]}/etc/apache2/conf-available/server-name.conf"
-
-  lxc-attach -n "${SERVERS[$i]}" -- a2enconf security
-  lxc-attach -n "${SERVERS[$i]}" -- a2enconf server-name
-
-  # Ajout DB_HOST pour identification
-  lxc-attach -n "${SERVERS[$i]}" -- bash -c "echo 'export DB_HOST=${DB_HOSTS[$i]}' >> /etc/apache2/envvars"
-
-  # Démarrage Apache & MariaDB
-  lxc-attach -n "${SERVERS[$i]}" -- systemctl restart apache2
-  lxc-attach -n "${SERVERS[$i]}" -- systemctl enable apache2 mariadb
-
-  echo "Container ${SERVERS[$i]} configuré"
-done
-
-# Récupère IP LXC
-declare -a IPS=()
-for i in {0..2}; do
-  IPS[$i]=$(lxc-info -n "${SERVERS[$i]}" -iH | head -n1)
-done
-
-echo
-echo "=== Résumé IP Containers ==="
-for i in {0..2}; do
-  echo "${SERVERS[$i]} => ${IPS[$i]}"
-done
-
-# Astuce /etc/hosts pour Docker-Compose (ou bridge direct Docker-LXC)
-for i in {0..2}; do
-  echo "${IPS[$i]}   ${SERVERS[$i]}"
-done > $REVERSE_PROXY_DIR/hosts.lxc
-
-### Préparation du reverse proxy Docker
-echo
-echo "=== Construction et lancement Reverse Proxy (Docker) ==="
-cd "$REVERSE_PROXY_DIR"
-
-# Mets à jour nginx.conf pour matcher les HN
-sed -i '/upstream backend {/,/}/{/server /d}' nginx.conf
-for i in {0..2}; do
-  echo "    server ${SERVERS[$i]}:80;" >> nginx.conf
-done
-
-# Build Docker image
-docker build -t my-nginx-reverse .
-
-# Enlève ancien container
-docker rm -f reverseproxy 2>/dev/null || true
-
-# On utilise le network hôte Linux (facile) et le /etc/hosts mis à jour
-docker run -d --name reverseproxy --restart unless-stopped \
-  --add-host "${SERVERS[0]}:${IPS[0]}" \
-  --add-host "${SERVERS[1]}:${IPS[1]}" \
-  --add-host "${SERVERS[2]}:${IPS[2]}" \
-  -p 80:80 my-nginx-reverse
-
-cd "$BASE_DIR"
-
-echo
-echo "=== Installation terminée ===
-    - Accès à http://IP_DE_VOTRE_HOTE/server1/ (ou /server2/ /server3/)
-    - Pour les tests, MariaDB écoute en local sur chaque webserver.
-    - docker ps   → pour voir reverse proxy (my-nginx-reverse)
-    - Pour arrêter tout, lxc-stop -n ... et docker rm -f reverseproxy
+  echo " [${CNT}] Déploiement index.html..."
+  lxc exec $CNT -- bash -c "
+cat >/var/www/html/index.php <<EOF
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Company 01 - \$HOSTNAME</title>
+  <meta charset=\"utf-8\">
+</head>
+<body>
+  <h1>Bienvenue chez Company 01</h1>
+  <p>
+    Ce site est hébergé sur le conteneur <strong><?php echo gethostname(); ?></strong>.<br>
+    Vous êtes actuellement sur : <strong><?php echo \$_SERVER['SERVER_ADDR']; ?></strong>
+  </p>
+</body>
+</html>
+EOF
 "
+done
+
+echo "== 4. Récupération des IPs LXC =="
+WEB1_IP=$(lxc list $C1 -c 4 --format csv | cut -d' ' -f1)
+WEB2_IP=$(lxc list $C2 -c 4 --format csv | cut -d' ' -f1)
+WEB3_IP=$(lxc list $C3 -c 4 --format csv | cut -d' ' -f1)
+echo "Web1: $WEB1_IP"
+echo "Web2: $WEB2_IP"
+echo "Web3: $WEB3_IP"
+
+echo "== 5. Génération NGINX config =="
+mkdir -p nginx-reverse-proxy
+cat > nginx-reverse-proxy/nginx.conf <<EOF
+events {}
+
+http {
+    server {
+        listen 80;
+        server_name web1.local;
+        location / {
+            proxy_pass http://$WEB1_IP/;
+        }
+    }
+    server {
+        listen 80;
+        server_name web2.local;
+        location / {
+            proxy_pass http://$WEB2_IP/;
+        }
+    }
+    server {
+        listen 80;
+        server_name web3.local;
+        location / {
+            proxy_pass http://$WEB3_IP/;
+        }
+    }
+}
+EOF
+
+echo "== 6. Génération Dockerfile NGINX reverse-proxy =="
+cat > nginx-reverse-proxy/Dockerfile <<EOF
+FROM nginx:alpine
+COPY ./nginx.conf /etc/nginx/nginx.conf
+RUN rm /etc/nginx/conf.d/default.conf
+EOF
+
+echo "== 7. Build & Run NGINX reverse proxy =="
+cd nginx-reverse-proxy
+docker build -t $PROXY_IMG .
+docker rm -f $PROXY_CTR 2>/dev/null || true
+docker run -d -p 80:80 --name $PROXY_CTR --network host $PROXY_IMG
+cd ..
+
+echo
+echo "== DONE ! =="
+echo "Ajoute ceci à /etc/hosts pour tester :"
+echo "$(hostname -I | awk '{print $1}') web1.local web2.local web3.local"
+echo "Ensuite visite http://web1.local, http://web2.local, http://web3.local"
