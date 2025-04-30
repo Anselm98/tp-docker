@@ -1,0 +1,42 @@
+services:
+
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: michel
+
+  webserver1: 
+    build: 
+      context: ./web
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - 80
+
+  webserver2:
+    build: 
+      context: ./web
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - 80
+
+  webserver3:
+    build: 
+      context: ./web
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - 80
+  reverse-proxy: 
+    build:
+      context: ./reverse-proxy
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - webserver1
+      - webserver2
+      - webserver3
