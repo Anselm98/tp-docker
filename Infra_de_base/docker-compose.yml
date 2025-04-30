@@ -1,12 +1,31 @@
 services:
 
-  db:
+  db1:
     image: mariadb
     restart: always
     environment:
       MARIADB_ROOT_PASSWORD: michel
+      MARIADB_DATABASE: webserver1db
     networks:
-      - app-network
+      - webserver1-network
+
+  db2:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: michel
+      MARIADB_DATABASE: webserver2db
+    networks:
+      - webserver2-network
+
+  db3:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: michel
+      MARIADB_DATABASE: webserver3db
+    networks:
+      - webserver3-network
 
   webserver1: 
     build: 
@@ -15,7 +34,11 @@ services:
     restart: always
     expose:
       - 80
+    environment:
+      - DB_HOST=db1
+      - DB_NAME=webserver1db
     networks:
+      - webserver1-network
       - app-network
 
   webserver2:
@@ -25,7 +48,11 @@ services:
     restart: always
     expose:
       - 80
+    environment:
+      - DB_HOST=db2
+      - DB_NAME=webserver2db
     networks:
+      - webserver2-network
       - app-network
 
   webserver3:
@@ -35,7 +62,11 @@ services:
     restart: always
     expose:
       - 80
+    environment:
+      - DB_HOST=db3
+      - DB_NAME=webserver3db
     networks:
+      - webserver3-network
       - app-network
 
   reverse-proxy: 
@@ -54,4 +85,10 @@ services:
 
 networks:
   app-network:
+    driver: bridge
+  webserver1-network:
+    driver: bridge
+  webserver2-network:
+    driver: bridge
+  webserver3-network:
     driver: bridge

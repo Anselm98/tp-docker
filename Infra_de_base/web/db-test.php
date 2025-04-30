@@ -1,9 +1,18 @@
 <?php
-// Default values
-$host = isset($_POST['host']) ? $_POST['host'] : 'db';
-$user = isset($_POST['user']) ? $_POST['user'] : 'root';
-$pass = isset($_POST['pass']) ? $_POST['pass'] : 'michel';
-$dbname = isset($_POST['dbname']) ? $_POST['dbname'] : 'mysql';
+// Get environment variables only for server identification display
+$server_host = getenv('DB_HOST') ?: '';
+
+// For form values, only use POST data, not environment variables
+$host = isset($_POST['host']) ? $_POST['host'] : '';
+$user = isset($_POST['user']) ? $_POST['user'] : '';
+$pass = isset($_POST['pass']) ? $_POST['pass'] : '';
+$dbname = isset($_POST['dbname']) ? $_POST['dbname'] : '';
+
+// Get server info for display
+$server_name = '';
+if ($server_host == 'db1') $server_name = 'Webserver 1';
+else if ($server_host == 'db2') $server_name = 'Webserver 2';
+else if ($server_host == 'db3') $server_name = 'Webserver 3';
 
 // Display the form
 echo '<!DOCTYPE html>
@@ -32,6 +41,24 @@ echo '<!DOCTYPE html>
         }
         h1 {
             margin: 0;
+        }
+        .server-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .server-links a {
+            display: inline-block;
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .server-links a:hover {
+            background-color: #2980b9;
         }
         .form-container {
             background-color: white;
@@ -90,6 +117,13 @@ echo '<!DOCTYPE html>
             color: #6c757d;
             margin-top: 30px;
         }
+        .server-info {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
     </style>
 </head>
 <body>
@@ -97,6 +131,12 @@ echo '<!DOCTYPE html>
         <h1>Company01 - Database Connection Test</h1>
     </header>
     <div class="container">
+        <div class="server-links">
+            <a href="/server1/">Webserver 1</a>
+            <a href="/server2/">Webserver 2</a>
+            <a href="/server3/">Webserver 3</a>
+        </div>
+        ' . ($server_name ? '<div class="server-info">Currently on: ' . $server_name . '</div>' : '') . '
         <div class="form-container">
             <form method="post">
                 <div class="form-group">
