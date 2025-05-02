@@ -8,7 +8,7 @@ PROXY_CTR=reverseproxy
 # --------- 1. Suppression des conteneurs LXC ----------
 echo "== 1. Suppression de TOUS les conteneurs LXC =="
 # Get all container names (running or stopped)
-CONTAINERS=$(lxc list --format=csv -c n)
+CONTAINERS=$(lxc list --format=csv)
 if [ -z "$CONTAINERS" ]; then
   echo "- Aucun conteneur LXC à supprimer."
 else
@@ -25,7 +25,7 @@ fi
 # --------- 2. Suppression des réseaux LXC ----------
 echo "== 2. Suppression de TOUS les réseaux LXC =="
 # Get all network names
-NETWORKS=$(lxc network list --format=csv -c n)
+NETWORKS=$(lxc network list --format=csv)
 if [ -z "$NETWORKS" ]; then
   echo "- Aucun réseau LXC à supprimer."
 else
