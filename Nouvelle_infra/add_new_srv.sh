@@ -15,6 +15,7 @@ WEBCTN="web$NEXT_SERVER"
 DBCTN="db$NEXT_SERVER"
 NETNAME="net$NEXT_SERVER"
 NETADDR="$BASE_NET.$NEXT_SERVER"
+SHARE_HOST="share_client$NEXT_SERVER"
 
 echo "Création du serveur $WEBCTN et de la base de données $DBCTN sur le réseau $NETNAME ($NETADDR.0/24)..."
 
@@ -38,6 +39,12 @@ lxc exec $WEBCTN -- apt update
 lxc exec $WEBCTN -- apt install -y apache2 php libapache2-mod-php php-mysql
 lxc exec $WEBCTN -- bash -c "echo '<?php phpinfo(); ?>' > /var/www/html/index.php"
 WEB_IP=$(lxc list $WEBCTN -c 4 | awk '!/IPV4/{ if ( $2 ~ /^[0-9]/ ) print $2 }')
+
+# --- CRÉATION DU DOSSIER PARTAGÉ ET MONTAGE ---
+echo "Création du dossier partagé entre l'hôte et $WEBCTN..."
+mkdir -p "$(pwd)/$SHARE_HOST"
+lxc config device remove $WEBCTN sharedsrv 2>/dev/null || true
+lxc config device add $WEBCTN sharedsrv disk source="$(pwd)/$SHARE_HOST" path=/srv/share
 
 # --- MISE À JOUR DU REVERSE PROXY ---
 echo "Mise à jour du reverse proxy pour inclure $WEBCTN ($WEB_IP)..."
@@ -72,5 +79,5 @@ docker exec $PROXY_CTR nginx -s reload
 rm nginx.conf
 
 echo "Le reverse proxy a été mis à jour pour inclure $WEBCTN."
-
 echo "Le serveur $WEBCTN et la base de données $DBCTN ont été créés et configurés."
+echo "Le dossier partagé $(pwd)/$SHARE_HOST a été monté sur $WEBCTN à /srv/share."
