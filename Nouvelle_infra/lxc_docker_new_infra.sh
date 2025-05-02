@@ -1,25 +1,25 @@
 #!/bin/bash
 set -e
 
-# --- PARAMETRES A MODIFIER AU BESOIN ---
+# --- PARAMÈTRES À MODIFIER AU BESOIN ---
 NBCLIENTS=3            # <== Changer selon besoin
 BASE_NET=10.10         # Les réseaux seront 10.10.1, 10.10.2, ...
 PROXY_IMG=my-reverseproxy
 PROXY_CTR=reverseproxy
-DB_ROOT_PWD="rootpass" # Mot de passe root mariadb (à changer pour usage réel)
+DB_ROOT_PWD="rootpass" # Mot de passe root mariadb (à changer pour prod)
 
 declare -A DB_PASS
 declare -A WEB_IP
 declare -A DB_IP
 
-# --- 1. CREATION DES RESEAUX LXC ---
+# --- 1. CRÉATION DES RÉSEAUX LXC ---
 for i in $(seq 1 $NBCLIENTS); do
   NETNAME="net$i"
   NETADDR="$BASE_NET.$i"
   lxc network create $NETNAME ipv4.address=${NETADDR}.1/24 ipv4.nat=true 2>/dev/null || true
 done
 
-# --- 2. CREATION DES CONTENEURS LXC webX et dbX ---
+# --- 2. CRÉATION DES CONTENEURS LXC webX et dbX ---
 for i in $(seq 1 $NBCLIENTS); do
   WEBCTN="web$i"
   DBCTN="db$i"
@@ -31,7 +31,17 @@ for i in $(seq 1 $NBCLIENTS); do
   lxc launch $IMG $DBCTN -n $NET 2>/dev/null || echo "$DBCTN existe déjà"
 done
 
-# --- 3. RECUPERATION DES IPs ---
+# --- 2.5. CRÉATION DU DOSSIER PARTAGÉ ET MONTAGE ---
+for i in $(seq 1 $NBCLIENTS); do
+  SHARE_HOST="share_client$i"
+  WEBCTN="web$i"
+  mkdir -p "$(pwd)/$SHARE_HOST"
+  # Retire l'ancien device si déjà existant
+  lxc config device remove $WEBCTN sharedsrv 2>/dev/null || true
+  lxc config device add $WEBCTN sharedsrv disk source="$(pwd)/$SHARE_HOST" path=/srv/share
+done
+
+# --- 3. RÉCUPÉRATION DES IPs ---
 echo "Attente des IPs des conteneurs..."
 sleep 5
 
@@ -50,16 +60,15 @@ for i in $(seq 1 $NBCLIENTS); do
   echo " - Db$i : ${DB_IP[$i]}"
 done
 
-# --- 4. INSTALLATION Apache2+PHP sur webX, MariaDB server sur dbX ---
+# --- 4. INSTALLATION Apache2+PHP sur webX, MariaDB sur dbX ---
 for i in $(seq 1 $NBCLIENTS); do
   WEBCTN="web$i"
   DBCTN="db$i"
-  # Générer un mot de passe sécurisé pour l'utilisateur SQL
   DBPASS=$(openssl rand -base64 32 | tr -d '=/+' | cut -c1-32)
   DB_PASS[$i]=$DBPASS
   DBNAME="client${i}"
   DBUSER="user${i}"
-  WEBCTN_IP="${WEB_IP[$i]}" # Pour GRANT précis
+  WEBCTN_IP="${WEB_IP[$i]}"
 
   echo " [${WEBCTN}] Installation Apache2/PHP"
   lxc exec $WEBCTN -- bash -c 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y apache2 php php-mysql'
@@ -115,7 +124,6 @@ events {}
 http {
     server {
         listen 80;
-
 EOF
 
 for i in $(seq 1 $NBCLIENTS); do
@@ -134,6 +142,12 @@ done
 cat >> nginx-reverse-proxy/nginx.conf <<EOF
     }
 }
+EOF
+
+cat > nginx-reverse-proxy/Dockerfile <<EOF
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/nginx.conf
+RUN rm /etc/nginx/conf.d/default.conf || true
 EOF
 
 cd nginx-reverse-proxy
@@ -161,4 +175,4 @@ for i in $(seq 1 $NBCLIENTS); do
   echo "    http://${IP_HOST}/server${i}/"
 done
 echo
-echo "*** Utilisez ce tableau pour connecter vos apps et tests BDD ***"
+echo "Chaque contene
