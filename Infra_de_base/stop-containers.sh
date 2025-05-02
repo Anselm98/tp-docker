@@ -1,10 +1,10 @@
 #!/bin/bash
 
-docker stop db1 db2 db3 webserver1 webserver2 webserver3 reverse-proxy
-docker rm db1 db2 db3 webserver1 webserver2 webserver3 reverse-proxy
+docker ps -a --filter "name=db" --filter "name=webserver" --filter "name=reverse-proxy" --format "{{.Names}}" | xargs -r docker stop
+docker ps -a --filter "name=db" --filter "name=webserver" --filter "name=reverse-proxy" --format "{{.Names}}" | xargs -r docker rm
 
-docker network rm webserver1-network webserver2-network webserver3-network app-network
+docker network ls --filter "name=webserver" --filter "name=app-network" --format "{{.Name}}" | xargs -r docker network rm
 
-docker volume rm db1-data db2-data db3-data
+docker volume ls --filter "name=db" --format "{{.Name}}" | xargs -r docker volume rm
 
-echo "Tous les conteneurs, les réseaux et les volumes ont été supprimés."
+echo "Tous les conteneurs, réseaux et volumes correspondants ont été supprimés."
