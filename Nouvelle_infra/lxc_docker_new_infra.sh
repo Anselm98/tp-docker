@@ -81,32 +81,7 @@ for i in $(seq 1 $NBCLIENTS); do
   DBHOST="${DB_IP[$i]}"
 
   # index.php fait une connexion à sa propre db
-  lxc exec $WEBCTN -- bash -c "
-cat >/var/www/html/index.php <<'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Company $i - <?php echo gethostname(); ?></title>
-  <meta charset=\"utf-8\">
-</head>
-<body>
-  <h1>Bienvenue chez Company $i</h1>
-  <p>Hébergé sur <strong><?php echo gethostname(); ?></strong> (WebX)</p>
-  <?php
-  \$mysqli = new mysqli('$DBHOST', '$DBUSER', '$DBPASS', '$DBNAME');
-  if(\$mysqli->connect_errno) {
-    echo \"<b>Erreur connexion BDD:</b> \".\$mysqli->connect_error;
-  } else {
-    echo \"Connexion MariaDB: OK\";
-    \$mysqli->close();
-  }
-  ?>
-  <br>IP Web: <strong><?php echo \$_SERVER['SERVER_ADDR']; ?></strong>
-  <br>IP DB : <strong>$DBHOST</strong>
-</body>
-</html>
-EOF
-"
+  lxc file push index.php ${CNT}/var/www/html/index.php --mode 0644
   lxc exec $WEBCTN -- rm -f /var/www/html/index.html || true
 done
 
