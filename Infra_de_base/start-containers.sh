@@ -13,10 +13,16 @@ docker run -d --name db3 --network webserver3-network -e MARIADB_ROOT_PASSWORD=m
 
 docker build -t my-webserver ./web
 
-docker run -d --name webserver1 --network webserver1-network --network app-network -e DB_HOST=db1 -e DB_NAME=webserver1db -p 8081:80 my-webserver
-docker run -d --name webserver2 --network webserver2-network --network app-network -e DB_HOST=db2 -e DB_NAME=webserver2db -p 8082:80 my-webserver
-docker run -d --name webserver3 --network webserver3-network --network app-network -e DB_HOST=db3 -e DB_NAME=webserver3db -p 8083:80 my-webserver
+docker run -d --name webserver1 --network webserver1-network -e DB_HOST=db1 -e DB_NAME=webserver1db -p 8081:80 my-webserver
+docker run -d --name webserver2 --network webserver2-network -e DB_HOST=db2 -e DB_NAME=webserver2db -p 8082:80 my-webserver
+docker run -d --name webserver3 --network webserver3-network -e DB_HOST=db3 -e DB_NAME=webserver3db -p 8083:80 my-webserver
 
 docker build -t my-reverse-proxy ./reverse_proxy
 
-docker run -d --name reverse-proxy --network app-network -p 80:80 my-reverse-proxy
+docker run -d --name reverse-proxy --network app-network \
+  --network webserver1-network \
+  --network webserver2-network \
+  --network webserver3-network \
+  -p 80:80 my-reverse-proxy
+
+echo "Les conteneurs ont bien été déployés."
