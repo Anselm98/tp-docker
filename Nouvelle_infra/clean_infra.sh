@@ -54,9 +54,4 @@ else
     echo "Docker non trouvé. Saut de la suppression du reverse proxy."
 fi
 
-
-# --------- 4. Nettoyage fichiers de conf NGINX/Docker ----------
-echo "== 4. Nettoyage fichiers de conf NGINX/Docker =="
-rm -rf nginx-reverse-proxy 2>/dev/null || true
-
 echo "== Nettoyage terminé ! =="
