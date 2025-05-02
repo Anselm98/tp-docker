@@ -106,12 +106,20 @@ for i in $(seq 1 $NBCLIENTS); do
   WEBCTN="web$i"
   # Note: Le script index.php devra utiliser l'IP de DB_IP[$i] pour se connecter
   DBHOST_IP="${DB_IP[$i]}" # IP que le PHP doit utiliser pour joindre la BDD
-
-  # Le script index.php actuel demande les infos dans un formulaire.
-  # Si on voulait pré-configurer la connexion DANS index.php, il faudrait le modifier ici.
-  # Pour l'instant, on pousse le même index.php générique.
   SCRIPT_DIR=$(dirname "$0")
-  lxc file push "${SCRIPT_DIR}/index.php" ${WEBCTN}/var/www/html/index.php --mode 0644
+  ORIGINAL_INDEX="${SCRIPT_DIR}/index.php"
+  TEMP_INDEX="${SCRIPT_DIR}/index_temp.php"
+
+  # Injecter NBCLIENTS dans une copie temporaire du fichier index.php
+  echo "<?php \$num_clients = ${NBCLIENTS}; ?>" > "$TEMP_INDEX"
+  cat "$ORIGINAL_INDEX" >> "$TEMP_INDEX"
+
+  # Pousser la version modifiée d'index.php vers le conteneur
+  lxc file push "$TEMP_INDEX" ${WEBCTN}/var/www/html/index.php --mode 0644
+
+  # Nettoyer le fichier temporaire
+  rm "$TEMP_INDEX"
+
   lxc exec $WEBCTN -- rm -f /var/www/html/index.html || true
 
   # Facultatif: Modifier index.php pour pré-remplir le champ host ?

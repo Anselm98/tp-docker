@@ -10,9 +10,10 @@ $dbname = isset($_POST['dbname']) ? $_POST['dbname'] : '';
 
 // Get server info for display
 $server_name = '';
-if ($server_host == 'db1') $server_name = 'Webserver 1';
-else if ($server_host == 'db2') $server_name = 'Webserver 2';
-else if ($server_host == 'db3') $server_name = 'Webserver 3';
+// Determine server name based on index, assuming $num_clients is available
+// We might need a way to know *which* server this instance is running on
+// For now, let's assume the server number is passed via URL or another mechanism
+// If not available, we won't show the specific server name.
 
 // Display the form
 echo '<!DOCTYPE html>
@@ -132,9 +133,24 @@ echo '<!DOCTYPE html>
     </header>
     <div class="container">
         <div class="server-links">
-            <a href="/server1/">Webserver 1</a>
-            <a href="/server2/">Webserver 2</a>
-            <a href="/server3/">Webserver 3</a>
+';
+
+// Generate server links dynamically based on $num_clients
+// Check if $num_clients is set and is a positive integer
+if (isset($num_clients) && is_int($num_clients) && $num_clients > 0) {
+    for ($i = 1; $i <= $num_clients; $i++) {
+        echo '            <a href="/server' . $i . '/">Webserver ' . $i . '</a>';
+    }
+} else {
+    // Fallback or error message if $num_clients is not set correctly
+    echo '            <!-- Number of clients not defined -->';
+    // Optionally, keep the old hardcoded links as a fallback?
+    // echo '            <a href="/server1/">Webserver 1</a>';
+    // echo '            <a href="/server2/">Webserver 2</a>';
+    // echo '            <a href="/server3/">Webserver 3</a>';
+}
+
+echo '
         </div>
         ' . ($server_name ? '<div class="server-info">Currently on: ' . $server_name . '</div>' : '') . '
         <div class="form-container">
