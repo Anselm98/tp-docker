@@ -5,11 +5,9 @@ docker network create webserver2-network
 docker network create webserver3-network
 docker network create app-network
 
-docker build -t my-mariadb ./db
-
-docker run -d --name db1 --network webserver1-network -e MARIADB_ROOT_PASSWORD=michel -e DB_INSTANCE=db1 -v db1-data:/var/lib/mysql my-mariadb
-docker run -d --name db2 --network webserver2-network -e MARIADB_ROOT_PASSWORD=michel -e DB_INSTANCE=db2 -v db2-data:/var/lib/mysql my-mariadb
-docker run -d --name db3 --network webserver3-network -e MARIADB_ROOT_PASSWORD=michel -e DB_INSTANCE=db3 -v db3-data:/var/lib/mysql my-mariadb
+docker run -d --name db1 --network webserver1-network -e MARIADB_ROOT_PASSWORD=michel -e MARIADB_DATABASE=webserver1db -e DB_INSTANCE=db1 -v db1-data:/var/lib/mysql my-mariadb-with-client
+docker run -d --name db2 --network webserver2-network -e MARIADB_ROOT_PASSWORD=michel -e MARIADB_DATABASE=webserver2db -e DB_INSTANCE=db2 -v db2-data:/var/lib/mysql my-mariadb-with-client
+docker run -d --name db3 --network webserver3-network -e MARIADB_ROOT_PASSWORD=michel -e MARIADB_DATABASE=webserver3db -e DB_INSTANCE=db3 -v db3-data:/var/lib/mysql my-mariadb-with-client
 
 docker build -t my-webserver ./web
 

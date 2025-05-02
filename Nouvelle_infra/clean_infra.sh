@@ -16,7 +16,7 @@ else
   echo "$CONTAINERS" | while IFS= read -r ctn; do
     if [ -n "$ctn" ]; then # Ensure the line is not empty
         echo "- Arrêt et suppression de $ctn"
-        lxc delete "$ctn" --force
+        lxc delete "$ctn" --force 2>/dev/null
     fi
   done
 fi
@@ -39,7 +39,7 @@ else
         #   continue
         # fi
         echo "- Suppression de $net"
-        lxc network delete "$net" || echo "Échec de la suppression de $net (peut être utilisé ou managé?)"
+        lxc network delete "$net" 2>/dev/null
     fi
   done
 fi
@@ -48,8 +48,8 @@ fi
 echo "== 3. Suppression du reverse proxy Docker =="
 # Check if docker is installed/running before attempting commands
 if command -v docker &> /dev/null; then
-    docker rm -f $PROXY_CTR 2>/dev/null || echo "Conteneur Docker $PROXY_CTR absent ou déjà supprimé."
-    docker rmi $PROXY_IMG 2>/dev/null || echo "Image Docker $PROXY_IMG absente ou déjà supprimée."
+    docker rm -f $PROXY_CTR 2>/dev/null || true
+    docker rmi $PROXY_IMG 2>/dev/null || true
 else
     echo "Docker non trouvé. Saut de la suppression du reverse proxy."
 fi
