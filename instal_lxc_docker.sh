@@ -1,22 +1,20 @@
 #!/bin/bash
 set -e
 
-# Installation de LXC (Linux Containers)
-echo "== Installation de LXC =="
+# Installation de LXD (Linux Containers Daemon moderne)
+echo "== Installation de LXD =="
 sudo apt update
-sudo apt install -y lxc lxc-templates lxc-utils uidmap
+sudo apt install -y lxd
 
-# Ajout de ton utilisateur courant (si pas déjà fait, évite le sudo à chaque fois)
-if ! grep -q "^$(whoami):" /etc/subuid; then
-    echo "== Configuration subuid/subgid pour $(whoami) =="
-    sudo sh -c "echo '$(whoami):100000:65536' >> /etc/subuid"
-    sudo sh -c "echo '$(whoami):100000:65536' >> /etc/subgid"
-fi
+# Ajoute l'utilisateur courant au groupe lxd (pour permettre lxc sans sudo)
+sudo usermod -aG lxd $USER
 
-# Installation de Docker (dépôt officiel et version à jour)
+# Initialisation (pré-remplie, tu pourras la refaire avec "sudo lxd init")
+echo "== Initialisation de LXD (interactive recommandée ensuite) =="
+
+# Installation de Docker (version officielle à jour)
 echo "== Installation de Docker =="
 sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
-
 sudo apt-get update
 sudo apt-get install -y ca-certificates curl gnupg lsb-release
 
@@ -31,18 +29,24 @@ echo \
 sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# Ajoute l'utilisateur courant au groupe docker pour exécuter docker sans sudo
-echo "== Ajout au groupe docker (relogin nécessaire après le script) =="
+# Ajout du user au groupe docker pour éviter sudo docker
 sudo usermod -aG docker $USER
+
+# (Optionnel) Installation de git si besoin
+echo "== Installation de Git =="
+sudo apt install -y git
+
+# Active et démarre Docker au boot
+sudo systemctl enable docker
+sudo systemctl start docker
 
 echo
 echo "== Installation terminée. =="
-echo "Déconnecte-toi/reconnecte-toi pour activer le groupe docker."
-echo "Teste Docker avec : docker run hello-world"
-echo "Teste LXC avec : lxc launch images:ubuntu/22.04 monconteneur"
-
-# Conseil optionnel: Active et démarre docker au boot (normalement fait par l’install)
-sudo systemctl enable docker
-sudo systemctl start docker
+echo
+echo "Déconnecte-toi et reconnecte-toi pour activer les groupes 'docker' et 'lxd' !"
+echo "Teste Docker     : docker run hello-world"
+echo "Teste LXD (lxc)  : lxc launch images:ubuntu/22.04 testfirst"
+echo "Pour configurer LXD : sudo lxd init"
+echo "Pour voir les groupes : id"
 
 exit 0
