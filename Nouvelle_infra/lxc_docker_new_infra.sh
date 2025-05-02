@@ -147,12 +147,12 @@ echo "== DONE ! =="
 
 echo
 echo "== IDENTIFIANTS SECURISES MARIA-DB CLIENTS =="
-printf "%-8s | %-15s | %-10s | %s\n" "Client" "IP DB" "Utilisateur" "Mot de passe généré"
-printf "%s\n" "----------------------------------------------------------------------------"
+printf "%-15s | %-10s | %-32s | %s\n" "Host" "Username" "Password" "Database"
+printf "%s\n" "------------------------------------------------------------------------------------------------"
 for i in $(seq 1 $NBCLIENTS); do
-    printf "client%-2s | %-15s | %-10s | %s\n" "$i" "${DB_IP[$i]}" "user$i" "${DB_PASS[$i]}"
+    printf "%-15s | %-10s | %-32s | %s\n" "${DB_IP[$i]}" "user$i" "${DB_PASS[$i]}" "client${i}"
 done
-echo "----------------------------------------------------------------------------"
+echo "------------------------------------------------------------------------------------------------"
 echo
 
 echo "Accédez aux serveurs via le Nginx Reverse Proxy :"
