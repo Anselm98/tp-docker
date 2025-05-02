@@ -160,12 +160,6 @@ cat >> nginx-reverse-proxy/nginx.conf <<EOF
 }
 EOF
 
-cat > nginx-reverse-proxy/Dockerfile <<EOF
-FROM nginx:alpine
-COPY nginx.conf /etc/nginx/nginx.conf
-RUN rm /etc/nginx/conf.d/default.conf || true
-EOF
-
 # --- 7. BUILD ET RUN NGINX ---
 cd nginx-reverse-proxy
 docker build -t $PROXY_IMG .
