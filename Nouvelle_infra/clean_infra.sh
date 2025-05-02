@@ -26,9 +26,3 @@ done
 echo "== 3. Suppression du reverse proxy Docker =="
 docker rm -f $PROXY_CTR 2>/dev/null || echo "$PROXY_CTR absent"
 docker rmi $PROXY_IMG 2>/dev/null || echo "Image $PROXY_IMG absente"
-
-# --------- 4. Nettoyage fichiers de conf NGINX/Docker ----------
-echo "== 4. Nettoyage fichiers de conf NGINX/Docker =="
-rm -rf nginx-reverse-proxy 2>/dev/null || true
-
-echo "== Nettoyage terminé ! =="
