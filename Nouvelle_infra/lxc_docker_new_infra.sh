@@ -41,24 +41,7 @@ for i in 1 2 3; do
   lxc exec $CNT -- systemctl start apache2 mariadb
 
   echo " [${CNT}] Déploiement index.php dynamique..."
-  lxc exec $CNT -- bash -c "
-cat >/var/www/html/index.php <<'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Company 01 - <?php echo gethostname(); ?></title>
-  <meta charset=\"utf-8\">
-</head>
-<body>
-  <h1>Bienvenue chez Company 01</h1>
-  <p>
-    Ce site est hébergé sur le conteneur <strong><?php echo gethostname(); ?></strong>.<br>
-    Vous êtes actuellement sur l'adresse IP : <strong><?php echo \$_SERVER['SERVER_ADDR']; ?></strong>
-  </p>
-</body>
-</html>
-EOF
-"
+  lxc file push index.php ${CNT}/var/www/html/index.php --mode 0644
   # (optionnel) Supprimer index.html si redirigé auto vers index.php
   lxc exec $CNT -- rm -f /var/www/html/index.html || true
 done
