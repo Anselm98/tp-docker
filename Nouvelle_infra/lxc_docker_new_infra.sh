@@ -79,7 +79,7 @@ for i in $(seq 1 $NBCLIENTS); do
   echo " [${DBCTN}] Configuration MariaDB pour ${DBUSER}@${WEBCTN_IP}"
   lxc exec $DBCTN -- bash -c "
 sleep 5
-mysql -u root <<EOS
+sudo mysql -u root <<EOS
 ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PWD';
 FLUSH PRIVILEGES;
 CREATE DATABASE IF NOT EXISTS $DBNAME;
