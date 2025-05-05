@@ -35,6 +35,11 @@ lxc launch $IMG $DBCTN -n $NETNAME 2>/dev/null || echo "$DBCTN existe déjà"
 echo "Configuration de la base de données sur $DBCTN..."
 lxc exec $DBCTN -- apt update
 lxc exec $DBCTN -- apt install -y mariadb-server
+
+# Désactiver les services inutiles (cron, ssh)
+lxc exec $DBCTN -- systemctl disable --now cron ssh || true
+
+# Configurer MariaDB avec un utilisateur non-root
 lxc exec $DBCTN -- bash -c "mysql -u root -e \"ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PWD'; FLUSH PRIVILEGES;\""
 lxc exec $DBCTN -- bash -c "mysql -u root -p$DB_ROOT_PWD -e \"CREATE DATABASE $DB_NAME;\""
 lxc exec $DBCTN -- bash -c "mysql -u root -p$DB_ROOT_PWD -e \"CREATE USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';\""
@@ -44,6 +49,11 @@ lxc exec $DBCTN -- bash -c "mysql -u root -p$DB_ROOT_PWD -e \"GRANT ALL PRIVILEG
 echo "Configuration du serveur web sur $WEBCTN..."
 lxc exec $WEBCTN -- apt update
 lxc exec $WEBCTN -- apt install -y apache2 php libapache2-mod-php php-mysql
+
+# Désactiver les services inutiles (cron, ssh)
+lxc exec $WEBCTN -- systemctl disable --now cron ssh || true
+
+# Ajouter un fichier PHP par défaut
 lxc exec $WEBCTN -- bash -c "echo '<?php phpinfo(); ?>' > /var/www/html/index.php"
 WEB_IP=$(lxc list $WEBCTN -c 4 | awk '!/IPV4/{ if ( $2 ~ /^[0-9]/ ) print $2 }')
 
