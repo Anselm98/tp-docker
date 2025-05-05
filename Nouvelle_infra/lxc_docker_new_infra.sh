@@ -125,12 +125,21 @@ done
 # --- 6. GENERATION CONFIG NGINX et Dockerfile ---
 mkdir -p nginx-reverse-proxy
 
+# Générer un certificat auto-signé
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout nginx-reverse-proxy/selfsigned.key \
+  -out nginx-reverse-proxy/selfsigned.crt \
+  -subj "/C=FR/ST=Paris/L=Paris/O=MyCompany/OU=IT/CN=localhost"
+
 cat > nginx-reverse-proxy/nginx.conf <<EOF
 events {}
 
 http {
     server {
-        listen 80;
+        listen 443 ssl;
+        ssl_certificate /etc/nginx/selfsigned.crt;
+        ssl_certificate_key /etc/nginx/selfsigned.key;
+
 EOF
 
 for i in $(seq 1 $NBCLIENTS); do
@@ -154,6 +163,8 @@ EOF
 cat > nginx-reverse-proxy/Dockerfile <<EOF
 FROM nginx:alpine
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY selfsigned.crt /etc/nginx/selfsigned.crt
+COPY selfsigned.key /etc/nginx/selfsigned.key
 RUN rm /etc/nginx/conf.d/default.conf || true
 EOF
 
@@ -161,7 +172,7 @@ EOF
 cd nginx-reverse-proxy
 docker build -t $PROXY_IMG .
 docker rm -f $PROXY_CTR 2>/dev/null || true
-docker run -d -p 80:80 --name $PROXY_CTR --network host $PROXY_IMG
+docker run -d -p 443:443 --name $PROXY_CTR --network host $PROXY_IMG
 cd ..
 
 # --- 8. AFFICHAGE DES IDENTIFIANTS ET URLS ---
@@ -181,6 +192,6 @@ echo
 echo "Accédez aux serveurs via le Nginx Reverse Proxy :"
 IP_HOST=$(hostname -I | awk '{print $1}')
 for i in $(seq 1 $NBCLIENTS); do
-  echo "    http://${IP_HOST}/server${i}/"
+  echo "    https://${IP_HOST}/server${i}/"
 done
 echo
