@@ -50,6 +50,7 @@ WEB_IP=$(lxc list $WEBCTN -c 4 | awk '!/IPV4/{ if ( $2 ~ /^[0-9]/ ) print $2 }')
 # --- CRÉATION DU DOSSIER PARTAGÉ ET MONTAGE ---
 echo "Création du dossier partagé entre l'hôte et $WEBCTN..."
 mkdir -p "$(pwd)/$SHARE_HOST"
+chmod 777 "$(pwd)/$SHARE_HOST"
 lxc config device remove $WEBCTN sharedsrv 2>/dev/null || true
 lxc config device add $WEBCTN sharedsrv disk source="$(pwd)/$SHARE_HOST" path=/srv/share
 

@@ -36,6 +36,7 @@ for i in $(seq 1 $NBCLIENTS); do
   SHARE_HOST="share_client$i"
   WEBCTN="web$i"
   mkdir -p "$(pwd)/$SHARE_HOST"
+  chmod 777 "$(pwd)/$SHARE_HOST"
   # Retire l'ancien device si déjà existant
   lxc config device remove $WEBCTN sharedsrv 2>/dev/null || true
   lxc config device add $WEBCTN sharedsrv disk source="$(pwd)/$SHARE_HOST" path=/srv/share
