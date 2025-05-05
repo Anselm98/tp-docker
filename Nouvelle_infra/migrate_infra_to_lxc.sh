@@ -484,16 +484,73 @@ echo "--- Configuration et lancement du Reverse Proxy Nginx (Docker) ---"
 NGINX_DIR="nginx-reverse-proxy-migrated"
 mkdir -p $NGINX_DIR
 
+echo "Vérification et installation d'OpenSSL si nécessaire..."
+if ! command -v openssl &> /dev/null; then
+    echo "OpenSSL non trouvé, installation en cours..."
+    apt-get update && apt-get install -y openssl
+fi
+
+echo "Génération de certificats SSL auto-signés..."
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout ${NGINX_DIR}/selfsigned.key \
+  -out ${NGINX_DIR}/selfsigned.crt \
+  -subj "/C=FR/ST=Paris/L=Paris/O=MyCompany/OU=IT/CN=localhost"
+
+# Vérification des certificats générés
+if [ ! -s "${NGINX_DIR}/selfsigned.key" ] || [ ! -s "${NGINX_DIR}/selfsigned.crt" ]; then
+  echo "ERREUR: Les certificats SSL n'ont pas été correctement générés."
+  echo "Tentative alternative avec une configuration plus simple..."
+  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout ${NGINX_DIR}/selfsigned.key \
+    -out ${NGINX_DIR}/selfsigned.crt \
+    -subj "/CN=localhost"
+  
+  # Vérification après la seconde tentative
+  if [ ! -s "${NGINX_DIR}/selfsigned.key" ] || [ ! -s "${NGINX_DIR}/selfsigned.crt" ]; then
+    echo "ERREUR CRITIQUE: Impossible de générer les certificats SSL. Utilisation de HTTP uniquement."
+    USE_SSL=false
+  else
+    USE_SSL=true
+  fi
+else
+  USE_SSL=true
+fi
+
 echo "Génération de $NGINX_DIR/nginx.conf..."
+
+# Création de la configuration de base
 cat > ${NGINX_DIR}/nginx.conf <<EOF
 events {}
 
 http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    
+EOF
+
+# Ajout des paramètres SSL si applicable
+if [ "$USE_SSL" = true ]; then
+  cat >> ${NGINX_DIR}/nginx.conf <<EOF
+    # SSL settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    
+    server {
+        listen 80;
+        listen 443 ssl;
+        ssl_certificate /etc/nginx/selfsigned.crt;
+        ssl_certificate_key /etc/nginx/selfsigned.key;
+
+EOF
+else
+  cat >> ${NGINX_DIR}/nginx.conf <<EOF
     server {
         listen 80;
 
 EOF
+fi
 
+# Ajout des locations pour les backends
 for i in $(seq 1 3); do
 cat >> ${NGINX_DIR}/nginx.conf <<EOF
         location /server${i}/ {
@@ -507,9 +564,10 @@ cat >> ${NGINX_DIR}/nginx.conf <<EOF
 EOF
 done
 
+# Ajout de la page d'accueil et fermeture de la configuration
 cat >> ${NGINX_DIR}/nginx.conf <<EOF
         location = / {
-            return 200 'Reverse Proxy OK. Accedez via l'uri /server1/ /server2/ /server3/...';
+            return 200 'Reverse Proxy OK. Accedez via l\'uri /server1/ /server2/ /server3/...';
             add_header Content-Type text/plain;
         }
     }
@@ -518,9 +576,14 @@ EOF
 
 echo "Génération de $NGINX_DIR/Dockerfile..."
 cat > ${NGINX_DIR}/Dockerfile <<EOF
-FROM nginx:alpine
+FROM nginx:stable
+# Installer les modules SSL si nécessaire
+RUN apt-get update && apt-get install -y --no-install-recommends ssl-cert && rm -rf /var/lib/apt/lists/*
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY selfsigned.key /etc/nginx/selfsigned.key
+COPY selfsigned.crt /etc/nginx/selfsigned.crt
 EXPOSE 80
+EXPOSE 443
 CMD ["nginx", "-g", "daemon off;"]
 EOF
 
@@ -532,8 +595,45 @@ echo "Arrêt/Suppression de l'ancien conteneur proxy (si existant)..."
 docker rm -f $PROXY_CTR 2>/dev/null || true
 
 echo "Lancement du nouveau conteneur proxy $PROXY_CTR..."
-docker run -d --name $PROXY_CTR --network host -p 80:80 $PROXY_IMG
-if [ $? -ne 0 ]; then echo "ERREUR: Lancement du conteneur proxy a échoué."; exit 1; fi
+if [ "$USE_SSL" = true ]; then
+  echo "Configuration avec support SSL/HTTPS"
+  docker run -d --name $PROXY_CTR -p 80:80 -p 443:443 $PROXY_IMG
+else
+  echo "Configuration avec support HTTP uniquement"
+  docker run -d --name $PROXY_CTR -p 80:80 $PROXY_IMG
+fi
+
+if [ $? -ne 0 ]; then 
+  echo "ERREUR: Lancement du conteneur proxy a échoué."; 
+  exit 1; 
+fi
+
+# Vérification que le conteneur est bien en cours d'exécution
+sleep 3
+if ! docker ps | grep -q $PROXY_CTR; then
+  echo "ERREUR: Le conteneur $PROXY_CTR n'est pas en cours d'exécution après le lancement."
+  echo "Logs du conteneur:"
+  docker logs $PROXY_CTR
+  echo "Tentative de relancer sans l'option réseau host..."
+  
+  # Suppression du conteneur existant
+  docker rm -f $PROXY_CTR 2>/dev/null || true
+  
+  # Relancer avec une configuration plus simple
+  if [ "$USE_SSL" = true ]; then
+    docker run -d --name $PROXY_CTR -p 80:80 -p 443:443 $PROXY_IMG
+  else
+    docker run -d --name $PROXY_CTR -p 80:80 $PROXY_IMG
+  fi
+  
+  sleep 3
+  if ! docker ps | grep -q $PROXY_CTR; then
+    echo "ERREUR CRITIQUE: Impossible de démarrer le conteneur reverse proxy."
+    exit 1
+  fi
+fi
+
+echo "Conteneur reverse proxy démarré avec succès!"
 
 # --- 8.5. DÉSACTIVATION DES SERVICES NON ESSENTIELS (CRON ET SSH) POUR DURCISSEMENT ---
 echo "--- Désactivation des services non essentiels (cron et ssh) dans les conteneurs LXC ---"
@@ -561,10 +661,17 @@ rm -rf "$DUMP_DIR"
 echo "== ACCES VIA LE REVERSE PROXY =="
 IP_HOST=$(hostname -I | awk '{print $1}' || echo "[IP_DE_VOTRE_MACHINE_HOTE]")
 
-echo "Le reverse proxy écoute sur http://${IP_HOST}:80"
-for i in $(seq 1 3); do
-  echo "    Backend $i (web${i} sur ${WEB_IP[$i]} via db${i} sur ${DB_IP[$i]}) accessible via : http://${IP_HOST}/server${i}/"
-done
+if [ "$USE_SSL" = true ]; then
+  echo "Le reverse proxy écoute sur http://${IP_HOST}:80 et https://${IP_HOST}:443"
+  for i in $(seq 1 3); do
+    echo "    Backend $i (web${i} sur ${WEB_IP[$i]} via db${i} sur ${DB_IP[$i]}) accessible via : http://${IP_HOST}/server${i}/ ou https://${IP_HOST}/server${i}/"
+  done
+else
+  echo "Le reverse proxy écoute sur http://${IP_HOST}:80 (HTTPS non disponible)"
+  for i in $(seq 1 3); do
+    echo "    Backend $i (web${i} sur ${WEB_IP[$i]} via db${i} sur ${DB_IP[$i]}) accessible via : http://${IP_HOST}/server${i}/"
+  done
+fi
 echo
 echo "*** La migration par copie de fichiers est terminée. ***"
 echo "*** Vérifiez que votre application web (index.php) se connecte correctement. ***"
