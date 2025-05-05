@@ -535,6 +535,20 @@ echo "Lancement du nouveau conteneur proxy $PROXY_CTR..."
 docker run -d --name $PROXY_CTR --network host -p 80:80 $PROXY_IMG
 if [ $? -ne 0 ]; then echo "ERREUR: Lancement du conteneur proxy a échoué."; exit 1; fi
 
+# --- 8.5. DÉSACTIVATION DES SERVICES NON ESSENTIELS (CRON ET SSH) POUR DURCISSEMENT ---
+echo "--- Désactivation des services non essentiels (cron et ssh) dans les conteneurs LXC ---"
+for i in $(seq 1 3); do
+  WEBCTN="web$i"
+  DBCTN="db$i"
+  
+  echo " [${WEBCTN}] Désactivation de cron et ssh pour durcissement..."
+  lxc exec $WEBCTN -- systemctl disable --now cron ssh || true
+  
+  echo " [${DBCTN}] Désactivation de cron et ssh pour durcissement..."
+  lxc exec $DBCTN -- systemctl disable --now cron ssh || true
+done
+echo "Services non essentiels désactivés pour renforcer la sécurité."
+
 # --- 9. FINALISATION ---
 echo
 echo "== MIGRATION TERMINEE ! =="
