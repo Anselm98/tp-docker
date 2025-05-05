@@ -1,4 +1,4 @@
-# Déploiement Manuel de la nouvelle infrastructure
+# Déploiement Manuel de nouveaux conteneurs dans la nouvelle infrastructure
 
 ## Utilisation du script
 
