@@ -1,6 +1,6 @@
 # Déploiement Manuel de la nouvelle infrastructure
 
-## 1. Utilisation du script
+## Utilisation du script
 
 Afin de faciliter le déploiement de nouveaux serveurs web, un script a été créé afin de le faire automatiquement. Il suffit donc de rendre ce script exécutable puis de l'exécuter :
 
