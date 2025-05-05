@@ -17,6 +17,11 @@ NETNAME="net$NEXT_SERVER"
 NETADDR="$BASE_NET.$NEXT_SERVER"
 SHARE_HOST="share_client$NEXT_SERVER"
 
+# Générer un mot de passe aléatoire pour l'utilisateur MariaDB
+DB_USER="user$NEXT_SERVER"
+DB_PASS=$(openssl rand -base64 12)
+DB_NAME="client${NEXT_SERVER}"
+
 echo "Création du serveur $WEBCTN et de la base de données $DBCTN sur le réseau $NETNAME ($NETADDR.0/24)..."
 
 # --- CRÉATION DU RÉSEAU LXC ---
@@ -31,7 +36,9 @@ echo "Configuration de la base de données sur $DBCTN..."
 lxc exec $DBCTN -- apt update
 lxc exec $DBCTN -- apt install -y mariadb-server
 lxc exec $DBCTN -- bash -c "mysql -u root -e \"ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PWD'; FLUSH PRIVILEGES;\""
-lxc exec $DBCTN -- bash -c "mysql -u root -p$DB_ROOT_PWD -e \"CREATE DATABASE webserver${NEXT_SERVER}db;\""
+lxc exec $DBCTN -- bash -c "mysql -u root -p$DB_ROOT_PWD -e \"CREATE DATABASE $DB_NAME;\""
+lxc exec $DBCTN -- bash -c "mysql -u root -p$DB_ROOT_PWD -e \"CREATE USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';\""
+lxc exec $DBCTN -- bash -c "mysql -u root -p$DB_ROOT_PWD -e \"GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'%'; FLUSH PRIVILEGES;\""
 
 # --- CONFIGURATION DU SERVEUR WEB ---
 echo "Configuration du serveur web sur $WEBCTN..."
@@ -78,6 +85,16 @@ docker exec $PROXY_CTR nginx -s reload
 # Supprimer le fichier temporaire local
 rm nginx.conf
 
-echo "Le reverse proxy a été mis à jour pour inclure $WEBCTN."
-echo "Le serveur $WEBCTN et la base de données $DBCTN ont été créés et configurés."
-echo "Le dossier partagé $(pwd)/$SHARE_HOST a été monté sur $WEBCTN à /srv/share."
+# --- AFFICHAGE DES IDENTIFIANTS ET URLS ---
+echo
+echo "== IDENTIFIANTS SECURISES MARIA-DB CLIENT =="
+printf "%-15s | %-10s | %-32s | %s\n" "Host" "Username" "Password" "Database"
+printf "%s\n" "------------------------------------------------------------------------------------------------"
+DB_IP=$(lxc list $DBCTN -c 4 | awk '!/IPV4/{ if ( $2 ~ /^[0-9]/ ) print $2 }')
+printf "%-15s | %-10s | %-32s | %s\n" "$DB_IP" "$DB_USER" "$DB_PASS" "$DB_NAME"
+echo "------------------------------------------------------------------------------------------------"
+echo
+
+echo "Accédez au serveur via le Nginx Reverse Proxy :"
+IP_HOST=$(hostname -I | awk '{print $1}')
+echo "    http://${IP_HOST}/server${NEXT_SERVER}/"
