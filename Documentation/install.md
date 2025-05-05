@@ -54,6 +54,7 @@ sudo lxd init
 ```bash
 sudo chmod +x install_docker.sh
 sudo ./install_docker.sh
+sudo iptables -I DOCKER-USER -j ACCEPT
 ```
 
 <aside>
