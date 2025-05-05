@@ -12,6 +12,15 @@ declare -A DB_PASS
 declare -A WEB_IP
 declare -A DB_IP
 
+# Vérification de l'existence du fichier index.php
+SCRIPT_DIR=$(dirname "$0")
+ORIGINAL_INDEX="${SCRIPT_DIR}/index.php"
+if [[ ! -f "$ORIGINAL_INDEX" ]]; then
+  echo "ERREUR : Le fichier index.php est introuvable dans $SCRIPT_DIR."
+  echo "Veuillez créer un fichier index.php ou spécifier son chemin correct."
+  exit 1
+fi
+
 # --- 1. CRÉATION DES RÉSEAUX LXC ---
 for i in $(seq 1 $NBCLIENTS); do
   NETNAME="net$i"
@@ -100,12 +109,9 @@ EOS
 " || echo "Echec configuration MariaDB pour $DBCTN"
 done
 
-# --- 5. DEPLOIEMENT index.php sur webX (utilise l'IP de dbX pour la connexion) ---
+# --- 5. DEPLOIEMENT index.php sur webX ---
 for i in $(seq 1 $NBCLIENTS); do
   WEBCTN="web$i"
-  DBHOST_IP="${DB_IP[$i]}"
-  SCRIPT_DIR=$(dirname "$0")
-  ORIGINAL_INDEX="${SCRIPT_DIR}/index.php"
   TEMP_INDEX="${SCRIPT_DIR}/index_temp.php"
 
   echo "<?php \$num_clients = ${NBCLIENTS}; ?>" > "$TEMP_INDEX"
@@ -151,12 +157,14 @@ COPY nginx.conf /etc/nginx/nginx.conf
 RUN rm /etc/nginx/conf.d/default.conf || true
 EOF
 
+# --- 7. CONSTRUCTION ET DÉPLOIEMENT DU REVERSE PROXY ---
 cd nginx-reverse-proxy
 docker build -t $PROXY_IMG .
 docker rm -f $PROXY_CTR 2>/dev/null || true
 docker run -d -p 80:80 --name $PROXY_CTR --network host $PROXY_IMG
 cd ..
 
+# --- 8. AFFICHAGE DES IDENTIFIANTS ET URLS ---
 echo
 echo "== DONE ! =="
 
@@ -176,4 +184,3 @@ for i in $(seq 1 $NBCLIENTS); do
   echo "    http://${IP_HOST}/server${i}/"
 done
 echo
-echo "Chaque contene
