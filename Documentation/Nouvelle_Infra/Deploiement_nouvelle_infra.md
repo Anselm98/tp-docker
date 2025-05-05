@@ -22,9 +22,9 @@ Host            | Username   | Password                         | Database
 ------------------------------------------------------------------------------------------------
 
 Accédez aux serveurs via le Nginx Reverse Proxy :
-    http://192.168.77.136/server1/
-    http://192.168.77.136/server2/
-    http://192.168.77.136/server3/
+    https://192.168.77.136/server1/
+    https://192.168.77.136/server2/
+    https://192.168.77.136/server3/
 
 ```
 
