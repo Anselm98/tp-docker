@@ -509,7 +509,7 @@ done
 
 cat >> ${NGINX_DIR}/nginx.conf <<EOF
         location = / {
-            return 200 'Reverse Proxy OK. Accédez via /serverX/';
+            return 200 'Reverse Proxy OK. Accedez via l'uri /server1/ /server2/ /server3/...';
             add_header Content-Type text/plain;
         }
     }
